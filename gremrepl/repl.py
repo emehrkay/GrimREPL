@@ -32,17 +32,15 @@ class Request:
 
         return json.dumps(message)
 
-    async def query(self, script=None, params=None, update_entities=None,
-                   rebindings=None, op='eval', processor=None,
-                   language='gremlin-groovy', session=None):
+    async def query(self, script=None, params=None, rebindings=None, op='eval',
+                    processor=None, language='gremlin-groovy'):
         try:
             connection = websockets.connect(self.ws_uri)
 
             async with connection as ws:
                 message = self.message(script=script, params=params,
                                        rebindings=rebindings, op=op,
-                                       processor=processor, language=language,
-                                       session=session)
+                                       processor=processor, language=language)
 
                 await ws.send(message)
 
@@ -53,6 +51,73 @@ class Request:
             raise e
 
 
+class Tabulate:
+
+    def __init__(self, response):
+        self.response = response
+        self.tables = []
+        self.request_id = response.get('requestId', None)
+        self.status = response.get('status', {})
+        self.result = response.get('result', {})
+        self.data = self.result.get('data', [])
+
+        self.headers = ['Request ID', 'Status']
+        self.table([self.request_id, self.status])
+
+    def table(self, data):
+        data = [self.headers, data,]
+        table = AsciiTable(data)
+
+        self.tables.append(table.table)
+        self.tables.append('\n\n')
+
+        return self
+
+    def draw(self):
+        if not self.data:
+            return ''
+
+        for data in self.data:
+            table_rows = []
+
+            if isinstance(data, dict):
+                headers = []
+                row_data = []
+                _id = data.get('id', None)
+                _label = data.get('label', None)
+                _type = data.get('type', None)
+                properties = data.get('properties', {})
+
+                if _id:
+                    headers.append('id')
+                    row_data.append(_id)
+
+                if _label:
+                    headers.append('label')
+                    row_data.append(_label)
+
+                if _type:
+                    headers.append('type')
+                    row_data.append(_type)
+
+                if properties:
+                    headers += list(properties.keys())
+                    row_data += list(properties.values())
+
+                table_rows.append(row_data)
+
+                if not self.headers or self.headers != headers:
+                    self.headers = headers
+                    self.table(row_data)
+            elif isinstance(data, (list, set)):
+                print(data)
+            else:
+                self.headers = ['Result']
+                self.table([data,])
+
+        return ''.join(self.tables)
+
+
 class GremREPL(cmd.Cmd):
 
     def __init__(self, request):
@@ -60,24 +125,12 @@ class GremREPL(cmd.Cmd):
         self.request = request
 
     def default(self, line, *args, **kwargs):
-        print(args)
-        print('---')
-        print(kwargs)
-        cmd, arg, line = self.parseline(line)
-        print(cmd, 'arg', arg, '----', line)
-        return
         async def query():
             data = await self.request.query(line)
-            rows = []
+            table = Tabulate(data)
 
-            for d in data['result']['data']:
-                for n, v in d['properties'].items():
-                    rows.append(v)
-            table = AsciiTable(rows)
+            print(table.draw())
 
-            import pprint 
-            pprint.pprint(data)
-            print(table.table)
         asyncio.get_event_loop().run_until_complete(query())
 
 
