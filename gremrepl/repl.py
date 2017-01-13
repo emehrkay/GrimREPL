@@ -1,6 +1,7 @@
 import asyncio
 import cmd
 import json
+import pprint
 import uuid
 import websockets
 
@@ -62,12 +63,12 @@ class Tabulate:
         self.data = self.result.get('data', [])
 
         self.headers = ['Request ID', 'Status']
-        self.table([self.request_id, self.status])
+        self.table([[self.request_id, self.status]])
 
     def table(self, data):
-        data = [self.headers, data,]
+        data = [self.headers] + data
         table = AsciiTable(data)
-
+        print('######', data)
         self.tables.append(table.table)
         self.tables.append('\n\n')
 
@@ -77,12 +78,14 @@ class Tabulate:
         if not self.data:
             return ''
 
-        for data in self.data:
-            table_rows = []
+        table_rows = []
+        lenght = len(self.data)
+
+        for i, data in enumerate(self.data):
+            row_data = []
 
             if isinstance(data, dict):
                 headers = []
-                row_data = []
                 _id = data.get('id', None)
                 _label = data.get('label', None)
                 _type = data.get('type', None)
@@ -102,13 +105,23 @@ class Tabulate:
 
                 if properties:
                     headers += list(properties.keys())
-                    row_data += list(properties.values())
+                    prop_values = []
+
+                    for pval in properties.values():
+                        for val in pval:
+                            value = val.get('value', '$$$')
+
+                            if isinstance(value, (dict, list, set)):
+                                value = pprint.pformat(value)
+
+                            prop_values.append(value)
+
+                    row_data += list(prop_values)
 
                 table_rows.append(row_data)
 
-                if not self.headers or self.headers != headers:
-                    self.headers = headers
-                    self.table(row_data)
+                self.headers = headers
+                self.table([row_data,])
             elif isinstance(data, (list, set)):
                 print(data)
             else:
