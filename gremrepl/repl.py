@@ -1,5 +1,7 @@
+import argparse
 import asyncio
 import cmd
+import copy
 import json
 import pprint
 import uuid
@@ -31,17 +33,22 @@ class Request:
             }
         }
 
+        if session:
+            message['op'] = 'session'
+            message['session'] = session
+
         return json.dumps(message)
 
     async def query(self, script=None, params=None, rebindings=None, op='eval',
-                    processor=None, language='gremlin-groovy'):
+                    processor=None, language='gremlin-groovy', session=None):
         try:
             connection = websockets.connect(self.ws_uri)
 
             async with connection as ws:
                 message = self.message(script=script, params=params,
                                        rebindings=rebindings, op=op,
-                                       processor=processor, language=language)
+                                       processor=processor, language=language,
+                                       session=session)
 
                 await ws.send(message)
 
@@ -62,71 +69,97 @@ class Tabulate:
         self.result = response.get('result', {})
         self.data = self.result.get('data', [])
 
-        self.headers = ['Request ID', 'Status']
-        self.table([[self.request_id, self.status]])
+        headers = ['Request ID', 'Status']
+        self.table(headers, [[self.request_id, self.status]])
 
-    def table(self, data):
-        data = [self.headers] + data
+    def table(self, headers, data):
+        data = [headers] + data
         table = AsciiTable(data)
-        print('######', data)
+        table.inner_row_border = False
         self.tables.append(table.table)
         self.tables.append('\n\n')
 
         return self
 
     def draw(self):
+        print(self.data)
+
+    def draw(self):
         if not self.data:
             return ''
 
-        table_rows = []
-        lenght = len(self.data)
+        rows = {}
 
         for i, data in enumerate(self.data):
+            data = copy.deepcopy(data)
+            headers = []
             row_data = []
 
             if isinstance(data, dict):
-                headers = []
                 _id = data.get('id', None)
                 _label = data.get('label', None)
                 _type = data.get('type', None)
                 properties = data.get('properties', {})
 
-                if _id:
+                if _id is not None:
                     headers.append('id')
                     row_data.append(_id)
+                    del data['id']
 
-                if _label:
+                if _label is not None:
                     headers.append('label')
                     row_data.append(_label)
+                    del data['label']
 
-                if _type:
+                if _type is not None:
                     headers.append('type')
                     row_data.append(_type)
+                    del data['type']
 
                 if properties:
-                    headers += list(properties.keys())
-                    prop_values = []
+                    for pname, pval in properties.items():
+                        prop_values = []
 
-                    for pval in properties.values():
+                        headers.append(pname)
+
+                        if not isinstance(pval, (list, set)):
+                            pval = [pval,]
+
                         for val in pval:
+                            if not isinstance(val, dict):
+                                prop_values.append(str(val))
+                                continue
+
                             value = val.get('value', '$$$')
+                            pproperties = val.get('properties', None)
 
-                            if isinstance(value, (dict, list, set)):
-                                value = pprint.pformat(value)
+                            prop_values.append(str(value))
 
-                            prop_values.append(value)
+                            if pproperties:
+                                pv = '    {}'.format(pproperties)
+                                prop_values.append(pv)
 
-                    row_data += list(prop_values)
+                        row_data.append('\n'.join(prop_values))
 
-                table_rows.append(row_data)
+                if 'properties' in data:
+                    del data['properties']
 
-                self.headers = headers
-                self.table([row_data,])
-            elif isinstance(data, (list, set)):
-                print(data)
+                for k, v in data.items():
+                    headers.append(k)
+                    row_data.append(v)
+
+                headers = tuple(headers)
             else:
-                self.headers = ['Result']
-                self.table([data,])
+                headers = ('Result',)
+                row_data = [data,]
+
+            if headers not in rows:
+                rows[headers] = []
+
+            rows[headers].append(row_data)
+
+        for header, data in rows.items():
+            self.table(list(header), data)
 
         return ''.join(self.tables)
 
@@ -147,10 +180,10 @@ class GremREPL(cmd.Cmd):
         asyncio.get_event_loop().run_until_complete(query())
 
 
-def cli():
+def cli(uri, port):
     try:
         while True:
-            request = Request('localhost')
+            request = Request(uri=uri, port=port)
             repl = GremREPL(request)
 
             repl.cmdloop()
@@ -159,4 +192,13 @@ def cli():
 
 
 if __name__ == '__main__':
-    cli()
+    parser = argparse.ArgumentParser(('GremREPL'))
+
+    parser.add_argument('-u', '--uri', default='localhost',
+        help='The uri for the Gremlin Server. Defaults to localhost.')
+    parser.add_argument('-p', '--port', default=8182,
+        help='The port for the Gremlin Server. Defaults to 8182.')
+
+    args = parser.parse_args()
+
+    cli(args.uri, args.port)
