@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-exec(open('gremlinpy/version.py').read())
+exec(open('gremrepl/version.py').read())
 
 setup(
     name='gremrepl',
