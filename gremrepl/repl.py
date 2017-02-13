@@ -10,6 +10,9 @@ import websockets
 from terminaltables import AsciiTable
 
 
+PROMPT = 'GrimREPL > '
+
+
 class Request:
 
     def __init__(self, uri, port=8182, three_two=True):
@@ -169,6 +172,7 @@ class GremREPL(cmd.Cmd):
     def __init__(self, request):
         cmd.Cmd.__init__(self)
         self.request = request
+        self.prompt = PROMPT
 
     def default(self, line, *args, **kwargs):
         async def query():
