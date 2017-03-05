@@ -91,7 +91,7 @@ class Tabulate:
         if not self.data:
             return ''
 
-        rows = {}
+        rows = []
 
         for i, data in enumerate(self.data):
             data = copy.deepcopy(data)
@@ -156,15 +156,24 @@ class Tabulate:
                 headers = ('Result',)
                 row_data = [data,]
 
-            if headers not in rows:
-                rows[headers] = []
+            try:
+                if rows[-1][0] == headers:
+                    rows[-1][1].append(row_data)
+                else:
+                    raise
+            except:
+                rows.append((headers, [row_data,]))
 
-            rows[headers].append(row_data)
+        for col in rows:
+            self.table(col[0], col[1])
 
-        for header, data in rows.items():
-            self.table(list(header), data)
+        tables = ''.join(self.tables)
+        total = len(self.data)
 
-        return ''.join(self.tables)
+        if total:
+            tables += '(total: {})\n'.format(total)
+
+        return tables
 
 
 class GremREPL(cmd.Cmd):
