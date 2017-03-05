@@ -17,5 +17,5 @@ python setup.py install
 ## Usage
 
 ```
-python gremrepl/repl.py [--uri localhost] [--port 8181]
+python gremrepl/repl.py [--uri localhost] [--port 8181] [--full true]
 ```

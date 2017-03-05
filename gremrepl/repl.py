@@ -126,7 +126,7 @@ class Tabulate:
                         headers.append(pname)
 
                         if not isinstance(pval, (list, set)):
-                            pval = [pval,]
+                            pval = [pval, ]
 
                         for val in pval:
                             if not isinstance(val, dict):
@@ -154,7 +154,7 @@ class Tabulate:
                 headers = tuple(headers)
             else:
                 headers = ('Result',)
-                row_data = [data,]
+                row_data = [data, ]
 
             try:
                 if rows[-1][0] == headers:
@@ -162,7 +162,7 @@ class Tabulate:
                 else:
                     raise
             except:
-                rows.append((headers, [row_data,]))
+                rows.append((headers, [row_data, ]))
 
         for col in rows:
             self.table(col[0], col[1])
@@ -178,14 +178,23 @@ class Tabulate:
 
 class GremREPL(cmd.Cmd):
 
-    def __init__(self, request):
+    def __init__(self, request, print_full_response=False):
         cmd.Cmd.__init__(self)
         self.request = request
+        self.print_full_response = print_full_response
         self.prompt = PROMPT
 
     def default(self, line, *args, **kwargs):
         async def query():
             data = await self.request.query(line)
+
+            if self.print_full_response:
+                print('*' * 80)
+                print('Full Response: \n')
+                pprint.pprint(data)
+                print('*' * 80)
+                print('\n')
+
             table = Tabulate(data)
 
             print(table.draw())
@@ -193,11 +202,12 @@ class GremREPL(cmd.Cmd):
         asyncio.get_event_loop().run_until_complete(query())
 
 
-def cli(uri, port):
+def cli(uri, port, print_full_response=False):
     try:
         while True:
             request = Request(uri=uri, port=port)
-            repl = GremREPL(request)
+            repl = GremREPL(request=request,
+                print_full_response=print_full_response)
 
             repl.cmdloop()
     except Exception as e:
@@ -211,7 +221,10 @@ if __name__ == '__main__':
         help='The uri for the Gremlin Server. Defaults to localhost.')
     parser.add_argument('-p', '--port', default=8182,
         help='The port for the Gremlin Server. Defaults to 8182.')
+    parser.add_argument('-f', '--full', default=False,
+        help=('Flag stating if the full response should be printed with'
+              ' every query'))
 
     args = parser.parse_args()
 
-    cli(args.uri, args.port)
+    cli(args.uri, args.port, args.full)
