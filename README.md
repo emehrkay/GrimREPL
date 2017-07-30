@@ -14,8 +14,10 @@ Simple REPL for remote [Tinkerpop Gremlin Server](http://tinkerpop.apache.org) c
 python setup.py install
 ```
 
+> You may need to do python3.VERSION setup.py install if python 3.5 is not your default python version
+
 ## Usage
 
 ```
-python gremrepl/repl.py [--uri localhost] [--port 8181] [--full true]
+grpl [--uri localhost] [--port 8181] [--full true]
 ```

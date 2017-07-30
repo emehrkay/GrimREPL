@@ -214,7 +214,7 @@ def cli(uri, port, print_full_response=False):
         raise e
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(('GremREPL'))
 
     parser.add_argument('-u', '--uri', default='localhost',
@@ -228,3 +228,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     cli(args.uri, args.port, args.full)
+
+
+if __name__ == '__main__':
+    main()
