@@ -21,3 +21,7 @@ python setup.py install
 ```
 grpl [--uri localhost] [--port 8181] [--full true]
 ```
+
+Passing the `--full` flag will display the complete output of the response.
+
+![Full flag](full.png)
